@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hanganyag Átírás — Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --border: #222222;
+    --accent: #00ff88;
+    --accent-dim: #00ff8833;
+    --text: #e8e8e8;
+    --text-dim: #666666;
+    --error: #ff4444;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 600px;
+  }
+
+  .header {
+    margin-bottom: 3rem;
+  }
+
+  .header h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+  }
+
+  .header p {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    font-weight: 300;
+  }
+
+  .demo-badge {
+    display: inline-block;
+    margin-top: 0.75rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #000;
+    background: var(--accent);
+    padding: 0.2rem 0.6rem;
+  }
+
+  .steps {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .step {
+    flex: 1;
+    height: 2px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+
+  .step.active { background: var(--accent); }
+  .step.done { background: var(--accent); opacity: 0.4; }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 2rem;
+    display: none;
+  }
+
+  .panel.visible { display: block; }
+
+  .panel-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 1.5rem;
+  }
+
+  .upload-area {
+    border: 1px dashed var(--border);
+    padding: 2.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+
+  .upload-area:hover, .upload-area.dragover {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .upload-area input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .upload-icon {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 2rem;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+  }
+
+  .upload-text {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+  }
+
+  .upload-text strong {
+    color: var(--text);
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  .file-selected {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--accent);
+    margin-bottom: 1.5rem;
+    padding: 0.75rem;
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+  }
+
+  .btn-transcribe {
+    display: block;
+    width: 100%;
+    padding: 1rem;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .btn-transcribe:hover:not(:disabled) {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .btn-transcribe:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .status {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .status.processing { color: var(--accent); }
+  .status.done { color: var(--accent); }
+  .status.error { color: var(--error); }
+
+  .spinner {
+    width: 12px;
+    height: 12px;
+    border: 1px solid var(--accent);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: none;
+  }
+
+  .status.processing .spinner { display: block; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .result-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: var(--text);
+    min-height: 150px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-bottom: 1rem;
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  .result-box.empty {
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  .btn-copy {
+    display: block;
+    width: 100%;
+    padding: 0.75rem;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    margin-bottom: 0.75rem;
+  }
+
+  .btn-copy:hover { color: var(--text); border-color: var(--text); }
+
+  .btn-new {
+    display: block;
+    width: 100%;
+    padding: 0.75rem;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .btn-new:hover { color: var(--accent); border-color: var(--accent); }
+
+  .offline-notice {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .offline-notice a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .footer {
+    margin-top: 2rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    opacity: 0.4;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>// hanganyag_atiras.exe</h1>
+    <p>Magyar nyelvű hang- és videófájlok automatikus szöveggé alakítása</p>
+    <span class="demo-badge">◆ Demo verzió</span>
+  </div>
+
+  <div class="steps">
+    <div class="step active" id="step1"></div>
+    <div class="step" id="step2"></div>
+  </div>
+
+  <!-- PANEL 1: FELTÖLTÉS -->
+  <div class="panel visible" id="panel-upload">
+    <div class="panel-title">01 / fájl feltöltése</div>
+    <div class="upload-area" id="drop-zone">
+      <input type="file" id="file-input" accept=".mp3,.mp4,.wav,.m4a,.ogg,.webm,.mpeg">
+      <div class="upload-icon">↑</div>
+      <div class="upload-text">
+        <strong>Válassz hangfájlt</strong>
+        MP3, MP4, WAV, M4A — max. 500 MB
+      </div>
+    </div>
+    <div class="file-selected" id="file-name" style="display:none"></div>
+    <button class="btn-transcribe" id="btn-transcribe" disabled>Átírás indítása →</button>
+    <div class="offline-notice">
+      ℹ️ &nbsp;Ez egy demo felület. Az átírás csak akkor működik, ha a helyi szerver aktív.<br>
+      Kérdés vagy megrendelés: <a href="mailto:kesztlerviktor@gmail.com">viktorkesztler@gmail.com</a>
+    </div>
+  </div>
+
+  <!-- PANEL 2: EREDMÉNY -->
+  <div class="panel" id="panel-result">
+    <div class="panel-title">02 / eredmény</div>
+    <div class="status" id="status">
+      <div class="spinner"></div>
+      <span id="status-text">Várakozás...</span>
+    </div>
+    <div class="result-box empty" id="result-box">Az átírt szöveg itt jelenik meg...</div>
+    <button class="btn-copy" id="btn-copy" style="display:none">Szöveg másolása</button>
+    <button class="btn-new" id="btn-new" style="display:none">← Új átírás</button>
+  </div>
+
+  <div class="footer">kesztler_viktor // whisper_large_v2 // cuda_float16</div>
+</div>
+
+<script>
+  const WHISPER_URL = 'https://kiss-cosmetics-blast-troops.trycloudflare.com/transcribe';
+
+  function showPanel(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('visible'));
+    document.getElementById('panel-' + name).classList.add('visible');
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active', 'done'));
+    if (name === 'upload') {
+      document.getElementById('step1').classList.add('active');
+    } else if (name === 'result') {
+      document.getElementById('step1').classList.add('done');
+      document.getElementById('step2').classList.add('active');
+    }
+  }
+
+  const fileInput = document.getElementById('file-input');
+  const fileName = document.getElementById('file-name');
+  const btnTranscribe = document.getElementById('btn-transcribe');
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) {
+      fileName.textContent = '✓ ' + fileInput.files[0].name;
+      fileName.style.display = 'block';
+      btnTranscribe.disabled = false;
+    }
+  });
+
+  const dropZone = document.getElementById('drop-zone');
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) {
+      fileInput.files = e.dataTransfer.files;
+      fileInput.dispatchEvent(new Event('change'));
+    }
+  });
+
+  btnTranscribe.addEventListener('click', async () => {
+    if (!fileInput.files[0]) return;
+    showPanel('result');
+    setStatus('processing', 'Feltöltés és átírás folyamatban...');
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    try {
+      const res = await fetch(WHISPER_URL, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.text) {
+        setStatus('done', 'Átírás kész!');
+        const box = document.getElementById('result-box');
+        box.textContent = data.text;
+        box.classList.remove('empty');
+        document.getElementById('btn-copy').style.display = 'block';
+        document.getElementById('btn-new').style.display = 'block';
+      } else {
+        setStatus('error', 'Hiba: ' + (data.error || 'Ismeretlen hiba'));
+        document.getElementById('btn-new').style.display = 'block';
+      }
+    } catch (err) {
+      setStatus('error', 'A szerver jelenleg nem aktív. Kérlek vedd fel a kapcsolatot.');
+      document.getElementById('btn-new').style.display = 'block';
+    }
+  });
+
+  function setStatus(type, text) {
+    const status = document.getElementById('status');
+    status.className = 'status ' + type;
+    document.getElementById('status-text').textContent = text;
+  }
+
+  document.getElementById('btn-copy').addEventListener('click', () => {
+    const text = document.getElementById('result-box').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      document.getElementById('btn-copy').textContent = '✓ Másolva!';
+      setTimeout(() => document.getElementById('btn-copy').textContent = 'Szöveg másolása', 2000);
+    });
+  });
+
+  document.getElementById('btn-new').addEventListener('click', () => {
+    fileInput.value = '';
+    fileName.style.display = 'none';
+    btnTranscribe.disabled = true;
+    document.getElementById('result-box').textContent = 'Az átírt szöveg itt jelenik meg...';
+    document.getElementById('result-box').classList.add('empty');
+    document.getElementById('btn-copy').style.display = 'none';
+    document.getElementById('btn-new').style.display = 'none';
+    showPanel('upload');
+  });
+</script>
+</body>
+</html>
